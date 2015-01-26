@@ -1,0 +1,117 @@
+---
+output:
+  html_document: default
+  pdf_document:
+    fig_height: 4
+---
+Predicting the Manner of the Exercise
+========================================================
+## Executive Summary
+MISSING
+## Preparations
+Setting the working directory:
+```{r}
+setwd("~/Dropbox/MOOCs/Coursera/Data Science/08 Machine Learning/Assignment/")
+```
+## Model Building
+### Loading the Data
+```{r}
+data <- read.csv("pml-training.csv")
+```
+### Loading the Packages
+```{r}
+library(caret)
+library(kernlab)
+```
+### PreProcessing
+#### Removing NA columns
+```{r}
+true.vector <- vector()
+for (i in 1:ncol(data)){
+      if(as.vector(table(is.na(data[,i]))[1]>500)){
+            true.vector <- append(true.vector, i)
+      }
+}
+data <- data[,true.vector]
+```
+#### Removing columns with missing values
+```{r}
+missing.vector <- vector()
+for (i in 1:ncol(data)){
+      if(as.vector(table(data[,i]==""))[1]>500){
+            missing.vector <- append(missing.vector, i)
+      }
+}
+data <- data[,missing.vector]
+```
+#### Removing the other Crap
+```{r}
+data <- data[,c(-1,-3:-7)]  # removing all the crap we don't need
+```
+#### Dummy Variables
+Dummy variables were not considered to be of much help, as it is assumed, that there is no difference in exercise performance between the individual people.
+#### Near Zeros Values
+It was tested for near zeros values with nearZeroVar() and the outcome suggested that there is no need to consider near zero variables.
+#### Identifying Correlated Predictors
+```{r}
+testdata <- data
+testdata <- testdata[,2:(ncol(testdata)-1)]
+descrCor <- cor(testdata)
+summary(descrCor[upper.tri(descrCor)])
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+testdata <- testdata[,-highlyCorDescr]
+descrCor2 <- cor(testdata)
+summary(descrCor2[upper.tri(descrCor2)])
+testdata$user_name <- data[,1]
+testdata$classe <- data[,ncol(data)]
+data <- testdata
+```
+#### Centering and Scaling
+```{r}
+testdata <- data
+testdata <- testdata[,1:(ncol(testdata)-2)]
+preProcValues <- preProcess(testdata, method = c("center", "scale"))
+testdata <- predict(preProcValues, testdata)
+testdata$user_name <- data[,ncol(data)-1]
+testdata$classe <- data[,ncol(data)]
+data <- testdata
+data <- data[,-33] # removing the names (carlito, etc.)
+```
+## Cross-Validation with Random Subsampling
+Due to time reasons and computing power, I had to do the following subset
+```{r}
+set.seed(123)
+inTrain_subset <- createDataPartition(y = data$classe, p = 0.01, list = F)
+data_subset <- data[inTrain_subset,]
+```
+This is what actually needs to be done. The following code should be run without the previous one in case of no time constrain.
+```{r}
+set.seed(456)
+inTrain <- createDataPartition(y = data$classe, p = 0.60, list = F)
+training1 <- data_subset[inTrain,]
+testing1 <- data_subset[-inTrain,]
+set.seed(789)
+inTrain <- createDataPartition(y = data$classe, p = 0.60, list = F)
+training2 <- data_subset[inTrain,]
+testing2 <- data_subset[-inTrain,]
+set.seed(101)
+inTrain <- createDataPartition(y = data$classe, p = 0.60, list = F)
+training3 <- data_subset[inTrain,]
+testing3 <- data_subset[-inTrain,]
+```
+## Expected "Out of Sample Error"
+```{r}
+modelFit1 <- train(classe~., data=training1, method="rf")
+modelFit2 <- train(classe~., data=training2, method="rf")
+modelFit3 <- train(classe~., data=training3, method="rf")
+prediction1 <- predict(modelFit1, newdata=testing1)
+prediction2 <- predict(modelFit2, newdata=testing2)
+prediction3 <- predict(modelFit3, newdata=testing3)
+table(prediction1,testing1$classe)
+table(prediction2,testing2$classe)
+table(prediction3,testing3$classe)
+```
+## Why Did I Make the Choices I Made
+There was quite some time constrain and I mainly followed the description on "http://topepo.github.io/caret/index.html".
+## Conclusion
+MISSING
